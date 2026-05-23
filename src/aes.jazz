@@ -1,0 +1,79 @@
+/* This file is taken from the helper material for the lecture on
+   Machine-Checked Cryptography with EasyCrypt and Jasmin, for the Summer School
+   on real-world crypto and privacy, Šibenik 2022.
+
+   Contributors: Manuel Barbosa, François Dupressoir, Benjamin Grégoire, Vincent
+   Laporte, Pierre-Yves Strub, Tiago Oliveira.
+
+   https://formosa-crypto.org/news/2022-06-07/sibenik */
+
+namespace AESLIB {
+    from AES require "aes.jinc"
+}
+
+/* Expose AES main functions. These functions can be called from C as
+   `AES__aes` and `AES__invaes`. */
+
+namespace AES {
+    export
+    fn aes(reg u128 key in) -> reg u128 {
+        reg u128 out = AESLIB::aes(key, in);
+        return out;
+    }
+
+    export
+    fn invaes(reg u128 key in) -> reg u128 {
+        reg u128 out = AESLIB::invaes(key, in);
+        return out;
+    }
+}
+
+/* Nonce-based symmetric encryption for 16-byte messages using AES as a PRF. */
+
+/* These functions can be called from C as `NB_AES_REG__dec` and
+   `NB_AES_REG__enc`. */
+
+namespace NB_AES_REG {
+    export
+    fn enc(reg u128 k n p) -> reg u128 {
+        reg u128 mask = AESLIB::aes(k, n);
+        reg u128 c = mask ^ p;
+        return c;
+    }
+
+    export
+    fn dec(reg u128 k n c) -> reg u128 {
+        reg u128 mask = AESLIB::aes(k, n);
+        reg u128 p = mask ^ c;
+        return p;
+    }
+}
+
+/* These receive 16-byte arrays. Convention is that the first array is writable
+   for output. They can be called as `NB_AES_MEM__enc` and `NB_AES_MEM__dec`. */
+
+namespace NB_AES_MEM {
+    type T = u8[16];
+
+    export
+    fn enc(reg ptr T cptr, reg const ptr T kptr nptr pptr) -> reg ptr T {
+        reg u128 k = kptr[:u128 0];
+        reg u128 n = nptr[:u128 0];
+        reg u128 mask = AESLIB::aes(k, n);
+        reg u128 p = pptr[:u128 0];
+        reg u128 c = mask ^ p;
+        cptr[:u128 0] = c;
+        return cptr;
+    }
+
+    export
+    fn dec(reg ptr T pptr, reg const ptr T kptr nptr cptr) -> reg ptr T {
+        reg u128 k = kptr[:u128 0];
+        reg u128 n = nptr[:u128 0];
+        reg u128 mask = AESLIB::aes(k, n);
+        reg u128 c = cptr[:u128 0];
+        reg u128 p = mask ^ c;
+        pptr[:u128 0] = p;
+        return pptr;
+    }
+}

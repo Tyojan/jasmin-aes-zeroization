@@ -28,12 +28,14 @@ namespace AES {
     }
 }
 
-/* AES main functions with round keys stored on the stack. */
+/* AES main functions with round keys stored on the stack.
+   The key schedule is computed separately and written into the provided stack
+   array, then consumed by the block function. */
 
 namespace AES_STACK {
-    export
-    fn aes(reg u128 key in) -> reg u128 {
-        stack u128[11] rkeys;
+    type T = u128[11];
+
+    fn expand_core(reg ptr T rkeys, reg u128 key) -> reg ptr T {
         reg u128 rk = key;
         reg u128 temp2 = #set0_128();
         rkeys[0] = rk;
@@ -45,18 +47,10 @@ namespace AES_STACK {
             rkeys[round] = rk;
         }
 
-        reg u128 state = in;
-        state ^= rkeys[0];
-        for round = 1 to 10 {
-            state = #AESENC(state, rkeys[round]);
-        }
-        state = #AESENCLAST(state, rkeys[10]);
-        return state;
+        return rkeys;
     }
 
-    export
-    fn invaes(reg u128 key in) -> reg u128 {
-        stack u128[11] rkeys;
+    fn expand_inv_core(reg ptr T rkeys, reg u128 key) -> reg ptr T {
         reg u128 rk = key;
         reg u128 temp2 = #set0_128();
         rkeys[0] = rk;
@@ -73,9 +67,37 @@ namespace AES_STACK {
             }
         }
 
+        return rkeys;
+    }
+
+    export
+    fn aes(reg u128 key in) -> reg u128 {
+        stack T rkeys;
+        reg ptr T prkeys;
+        prkeys = rkeys;
+        prkeys = expand_core(prkeys, key);
+
+        reg u128 state = in;
+        state ^= rkeys[0];
+        inline int round;
+        for round = 1 to 10 {
+            state = #AESENC(state, rkeys[round]);
+        }
+        state = #AESENCLAST(state, rkeys[10]);
+        return state;
+    }
+
+    export
+    fn invaes(reg u128 key in) -> reg u128 {
+        stack T rkeys;
+        reg ptr T prkeys;
+        prkeys = rkeys;
+        prkeys = expand_inv_core(prkeys, key);
+
         reg u128 state = in;
         reg u128 rk10 = rkeys[10];
         state = state ^ rk10;
+        inline int round;
         for round = 9 downto 0 {
             state = #AESDEC(state, rkeys[round]);
         }

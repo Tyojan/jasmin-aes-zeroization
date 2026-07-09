@@ -19,4 +19,13 @@ void NB_AES_MEM__enc(uint8_t cptr[16], const uint8_t kptr[16],
 void NB_AES_MEM__dec(uint8_t pptr[16], const uint8_t kptr[16],
                      const uint8_t nptr[16], const uint8_t cptr[16]);
 
+uint8_t *AES128_CTR__enc_1mb(uint8_t out[1048576],
+                             const uint8_t in[1048576],
+                             const uint8_t key[16],
+                             const uint8_t ctr[16]);
+uint8_t *AES128_CTR__dec_1mb(uint8_t out[1048576],
+                             const uint8_t in[1048576],
+                             const uint8_t key[16],
+                             const uint8_t ctr[16]);
+
 #endif

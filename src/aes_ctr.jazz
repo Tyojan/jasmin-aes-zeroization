@@ -1,0 +1,106 @@
+namespace AESLIB {
+    from AES require "aes.jinc"
+}
+
+/* AES-128-CTR over exactly 1 MiB.
+   The 128-bit counter is represented as two little-endian u64 words. */
+
+namespace AES128_CTR {
+    type RKeys = u128[11];
+    type Block = u8[16];
+    type Buf1M = u8[1048576];
+
+    fn expand_core(reg ptr RKeys rkeys, reg u128 key) -> reg ptr RKeys {
+        reg u128 rk = key;
+        reg u128 temp2 = #set0_128();
+        rkeys[0] = rk;
+
+        inline int round;
+        for round = 1 to 11 {
+            inline int rcon = AESLIB::RCON(round);
+            (rk, temp2) = AESLIB::key_expand(rcon, rk, temp2);
+            rkeys[round] = rk;
+        }
+
+        return rkeys;
+    }
+
+    inline
+    fn aes_block(reg ptr RKeys rkeys, reg u128 in) -> reg u128 {
+        reg u128 state = in;
+        state ^= rkeys[0];
+
+        inline int round;
+        for round = 1 to 10 {
+            state = #AESENC(state, rkeys[round]);
+        }
+        state = #AESENCLAST(state, rkeys[10]);
+        return state;
+    }
+
+    export
+    fn enc_1mb(reg mut ptr Buf1M out, reg const ptr Buf1M in,
+               reg const ptr Block keyptr ctrptr) -> reg ptr Buf1M {
+        stack RKeys rkeys;
+        stack u64[2] ctr_words;
+        reg ptr RKeys prkeys;
+        prkeys = rkeys;
+
+        reg u128 key = keyptr[:u128 0];
+        prkeys = expand_core(prkeys, key);
+
+        reg u64 lo = ctrptr[:u64 0];
+        reg u64 hi = ctrptr[:u64 1];
+        reg u64 off = 0;
+        reg bool carry;
+
+        while (off < 1048576) {
+            ctr_words[0] = lo;
+            ctr_words[1] = hi;
+            reg u128 counter = ctr_words[:u128 0];
+            reg u128 mask = aes_block(prkeys, counter);
+            reg u128 block = in.[:u128 off];
+            block ^= mask;
+            out.[:u128 off] = block;
+
+            carry, lo += 1;
+            _, hi += 0 + carry;
+            off += 16;
+        }
+
+        return out;
+    }
+
+    export
+    fn dec_1mb(reg mut ptr Buf1M out, reg const ptr Buf1M in,
+               reg const ptr Block keyptr ctrptr) -> reg ptr Buf1M {
+        stack RKeys rkeys;
+        stack u64[2] ctr_words;
+        reg ptr RKeys prkeys;
+        prkeys = rkeys;
+
+        reg u128 key = keyptr[:u128 0];
+        prkeys = expand_core(prkeys, key);
+
+        reg u64 lo = ctrptr[:u64 0];
+        reg u64 hi = ctrptr[:u64 1];
+        reg u64 off = 0;
+        reg bool carry;
+
+        while (off < 1048576) {
+            ctr_words[0] = lo;
+            ctr_words[1] = hi;
+            reg u128 counter = ctr_words[:u128 0];
+            reg u128 mask = aes_block(prkeys, counter);
+            reg u128 block = in.[:u128 off];
+            block ^= mask;
+            out.[:u128 off] = block;
+
+            carry, lo += 1;
+            _, hi += 0 + carry;
+            off += 16;
+        }
+
+        return out;
+    }
+}

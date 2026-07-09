@@ -28,6 +28,62 @@ namespace AES {
     }
 }
 
+/* AES main functions with round keys stored on the stack. */
+
+namespace AES_STACK {
+    export
+    fn aes(reg u128 key in) -> reg u128 {
+        stack u128[11] rkeys;
+        reg u128 rk = key;
+        reg u128 temp2 = #set0_128();
+        rkeys[0] = rk;
+
+        inline int round;
+        for round = 1 to 11 {
+            inline int rcon = AESLIB::RCON(round);
+            (rk, temp2) = AESLIB::key_expand(rcon, rk, temp2);
+            rkeys[round] = rk;
+        }
+
+        reg u128 state = in;
+        state ^= rkeys[0];
+        for round = 1 to 10 {
+            state = #AESENC(state, rkeys[round]);
+        }
+        state = #AESENCLAST(state, rkeys[10]);
+        return state;
+    }
+
+    export
+    fn invaes(reg u128 key in) -> reg u128 {
+        stack u128[11] rkeys;
+        reg u128 rk = key;
+        reg u128 temp2 = #set0_128();
+        rkeys[0] = rk;
+
+        inline int round;
+        for round = 1 to 11 {
+            inline int rcon = AESLIB::RCON(round);
+            (rk, temp2) = AESLIB::key_expand(rcon, rk, temp2);
+            if (round != 10) {
+                reg u128 invrk = #AESIMC(rk);
+                rkeys[round] = invrk;
+            } else {
+                rkeys[round] = rk;
+            }
+        }
+
+        reg u128 state = in;
+        reg u128 rk10 = rkeys[10];
+        state = state ^ rk10;
+        for round = 9 downto 0 {
+            state = #AESDEC(state, rkeys[round]);
+        }
+        state = #AESDECLAST(state, rkeys[0]);
+        return state;
+    }
+}
+
 /* Nonce-based symmetric encryption for 16-byte messages using AES as a PRF. */
 
 /* These functions can be called from C as `NB_AES_REG__dec` and

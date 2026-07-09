@@ -62,6 +62,17 @@ int main(void) {
   store(buf, AES__invaes(load(fips_key), load(fips_cipher)));
   check_eq("AES__invaes(fips_key, fips_cipher) == fips_plain", buf, fips_plain);
 
+  /* Stack-backed AES round keys. */
+  store(buf, AES_STACK__aes(load(fips_key), load(fips_plain)));
+  check_eq("AES_STACK__aes(fips_key, fips_plain) == fips_cipher", buf,
+           fips_cipher);
+  store(buf2, AES_STACK__invaes(load(fips_key), load(buf)));
+  check_eq("AES_STACK__invaes(fips_key, ciphertext) == fips_plain", buf2,
+           fips_plain);
+  store(buf, AES_STACK__invaes(load(fips_key), load(fips_cipher)));
+  check_eq("AES_STACK__invaes(fips_key, fips_cipher) == fips_plain", buf,
+           fips_plain);
+
   /* NB_AES_REG round-trip: dec(k,n,enc(k,n,p)) == p. */
   {
     __m128i k = load(fips_key);

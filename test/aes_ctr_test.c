@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <alloca.h>
 #include "aes.h"
 
 #define TEST_LEN 1048576
@@ -58,7 +58,7 @@ int main(void) {
   uint8_t *cipher = malloc(TEST_LEN);
   uint8_t *back = malloc(TEST_LEN);
   uint8_t *zero = calloc(TEST_LEN, 1);
-
+  void *p = alloca(512);
   if (plain == NULL || cipher == NULL || back == NULL || zero == NULL) {
     fputs("allocation failed\n", stderr);
     free(plain);
@@ -86,7 +86,7 @@ int main(void) {
   free(zero);
 
   if (failures == 0) {
-    puts("all tests passed");
+    // puts("all tests passed");
     return 0;
   }
   printf("%d test(s) failed\n", failures);
